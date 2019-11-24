@@ -342,12 +342,18 @@ def inputRead(circuit, line):
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # FUNCTION: the actual simulation #
-def basic_sim(circuit, cycle):
+def basic_sim(circuit, cycle, circuit_type, GoodOutput):
     # Creating a queue, using a list, containing all of the gates in the circuit
     
+    detectedCycle = -1 #used to find when fault is detected
+    detected = False #used for time keeping purpose
+
+    cycle_iterator = 1
     while(cycle != 0):
+        #reset only the accessed or not bool
         for key in circuit["GATES"][1]:
             circuit[key][2] = False
+
         queue = list(circuit["GATES"][1])
         while True:
             # If there's no more things in queue, done
@@ -383,45 +389,49 @@ def basic_sim(circuit, cycle):
             else:
                 # If the terminals have not been accessed yet, append the current node at the end of the queue
                 queue.append(curr)
-        for ffs in list(circuit["FFs"][1]):
+
+        output = ""
+        for y in circuit["OUTPUTS"][1]:
+            if circuit[y][3] == '':
+                output += "X"  #This is used to show that output has not reached the end. Should never hit this
+            else:
+                output = str(circuit[y][3]) + output
+        print(circuit_type + " output at cycle " + str(cycle_iterator) + " is : " + output)
+    
+        for ffs in circuit["FFs"][1]:
             #The above does not write to FF's. So this will write to ffs at the end of the cycle
             circuit[ffs][3] = circuit[circuit[ffs][1][0]][3] 
+            print("Value of " + ffs + " Flip Flop is " + circuit[ffs][3])
+        
+        if GoodOutput is output:
+            if not detected:
+                detectedCycle = cycle_iterator
+                detected = True
+
+        print("\n")
+        cycle_iterator += 1
         cycle -= 1
-    #find the output and return it
-    output = ""
-    for y in circuit["OUTPUTS"][1]:
-        if circuit[y][3] == '':
-            output += "X"  #This is used to show that output has not reached the end. Should never hit this
-        else:
-            output = str(circuit[y][3]) + output
+
+    if detected:
+        return detectedCycle
     return output
 
-def fault_sim(circuit, activeFaults, inputCircuit,goodOutput,faultFile):
-    toOutput = []
-    for x in activeFaults:
-        output = ''
-        circuit = copy.deepcopy(inputCircuit)
-        
-        xSplit = x[0].split("-SA-")
-        
 
-        # Get the value to which the node is stuck at
-        value = xSplit[1]
 
-        currentFault = "wire_" + xSplit[0]
+def fault_insertion(circuit, currFault):
+    xSplit = currFault.split("-SA-")
+    valueOfFault = xSplit[1]
 
-        if "-IN-" not in currentFault:
-            circuit[currentFault][3] = value
-            circuit[currentFault][2] = True
+    currWire = "wire_" + xSplit[0]
+    if "-IN-" not in currWire:
+        circuit[currWire][3] = valueOfFault
+        circuit[currWire][2] = True
+    else:
+        currWire = currWire.split("-IN-")
+        circuit[currWire[0]][1].remove("wire_"+currWire[1])
+        circuit[currWire[0]][1].append(valueOfFault)
+    return circuit
 
-        else:
-            currentFault = currentFault.split("-IN-")
-            circuit[currentFault[0]][1].remove("wire_"+currentFault[1])
-            circuit[currentFault[0]][1].append(value)
-
-        basic_sim(circuit)
-
-    return activeFaults
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # FUNCTION: Main Function
@@ -434,7 +444,7 @@ def main():
     # Select circuit benchmark file, default is circuit.bench
     while True:
         cktFile = os.path.join(script_dir, "circuit.bench")   
-        userInput = input("\n Read circuit benchmark file: use circuit.bench?" + " Enter to accept or type filename: ")
+        userInput = input("\n    Read circuit benchmark file: use circuit.bench?" + " Enter to accept or type filename: ")
         if userInput == "":
             break
         else:
@@ -444,25 +454,31 @@ def main():
             else:
                 break
     circuit = netRead(cktFile)
+    print("        Successfully read the bench file")
+
     #select TV
     while True:
-        seed = input("What is your TV value in integer: ")
-        if seed.isdigit():
-            width = circuit["INPUT_WIDTH"][1]
+        seed = input("    What is your TV value in integer: ")
+        try:
             seed = int(seed)
-            if(seed < 0):
-                TV = bin(seed & 0b1*width)[2:]
-                break
-            else:
-                TV = bin(seed)[2:].zfill(width)
-                TV = TV[:width]#only take the msb values
-                break
-    print("Your TV is : " + str(TV))
+        except ValueError:
+            continue
+
+        #if good value
+        width = circuit["INPUT_WIDTH"][1]
+        if(seed < 0):
+            TV =  bin(seed & int("1"*width,2))[2:].zfill(width)
+            break
+        else:
+            TV = bin(seed)[2:].zfill(width)
+            TV = TV[:width]#only take the msb values
+            break
+    print("\n        Your TV is : " + TV)
 
     #Select cycle count
     while True:
         cycle = 5
-        userInput = input("How many cycles, press enter to run 5 times: ")
+        userInput = input("    How many cycles, press enter to run 5 times: ")
         if userInput == "":
             break
         else:
@@ -477,7 +493,7 @@ def main():
     while True:
         first_input = circuit["INPUTS"][1][0]
         currFault = first_input[5:]+"-SA-0"
-        userInput = input("Enter the fault you want to simulate. Press enter to use " + currFault + ": ")
+        userInput = input("    Enter the fault you want to simulate. Press enter to use " + currFault + ": ")
         if userInput == "":
             break
         else:
@@ -491,32 +507,18 @@ def main():
     newCircuit = copy.deepcopy(circuit) #make a copy
 
     #look for good output
-    output = basic_sim(circuit, cycle)
-    print("Good output is: " + output)
-    for ff in circuit["FFs"][1]:
-        print("Value of " + ff + " Flip Flop is " + circuit[ff][3])
+    GoodOutput = basic_sim(circuit, cycle, "Good", "AAAAA")
     circuit = copy.deepcopy(newCircuit)
     
-    print("\n")
     #implement the fault into the circuit
-    xSplit = currFault.split("-SA-")
-    valueOfFault = xSplit[1]
-
-    currWire = "wire_" + xSplit[0]
-    if "-IN-" not in currWire:
-        circuit[currWire][3] = valueOfFault
-        circuit[currWire][2] = True
+    circuit = fault_insertion(circuit, currFault)
+    output = basic_sim(circuit, cycle, currFault, GoodOutput)
+    if isinstance(output, int) and ('U' not in GoodOutput):
+        print(currFault + " fault is detected at cycle " + str(output))
     else:
-        currWire = currWire.split("-IN-")
-        circuit[currWire[0]][1].remove("wire_"+currWire[1])
-        circuit[currWire[0]][1].append(valueOfFault)
-
-    output = basic_sim(circuit, cycle)
-    print("Output of " + currFault + " is " + output)
-    for ff in circuit["FFs"][1]:
-        print("Value of " + ff + " Flip Flop is " + circuit[ff][3])
+        print(currFault + " fault is not detected")
 
 
 if __name__ == "__main__":
     main()
-	input()
+    #input()
