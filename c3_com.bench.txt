@@ -1,0 +1,11 @@
+INPUT(A)
+INPUT(B)
+INPUT(C)
+
+OUTPUT(D)
+
+e = OR(A,B)
+g = AND(e,B)
+
+i = NOR(C, B)
+D = AND(g,i)

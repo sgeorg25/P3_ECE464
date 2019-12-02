@@ -1,0 +1,12 @@
+INPUT(A)
+INPUT(B)
+OUTPUT(C)
+
+
+x = NOT(A)
+y = DFF(x)
+
+z = DFF(B)
+w = NOT(z)
+
+C = NAND(w,y)

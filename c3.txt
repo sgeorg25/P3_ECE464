@@ -1,0 +1,14 @@
+INPUT(A)
+INPUT(B)
+INPUT(C)
+
+OUTPUT(D)
+
+e = OR(A,B)
+f = DFF(e)
+g = AND(f,B)
+
+j = DFF(B)
+i = NOR(C, j)
+h = DFF(i)
+D = AND(g,h)

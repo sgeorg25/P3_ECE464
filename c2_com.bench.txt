@@ -1,0 +1,13 @@
+INPUT(A)
+INPUT(B)
+INPUT(C)
+
+OUTPUT(D)
+
+f = NOT(A)
+g = OR(f,B)
+
+h = AND(B,C)
+
+D = NOR(g,h)
+

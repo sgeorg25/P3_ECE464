@@ -1,0 +1,15 @@
+INPUT(A)
+INPUT(B)
+INPUT(C)
+
+OUTPUT(D)
+
+e = DFF(A)
+f = NOT(e)
+g = OR(f,B)
+
+h = AND(B,C)
+i = DFF(h)
+
+D = NOR(g,i)
+

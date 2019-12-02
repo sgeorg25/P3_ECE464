@@ -1,0 +1,12 @@
+INPUT(A)
+INPUT(B)
+
+OUTPUT(C)
+
+d = NOT(A)
+f = NOT(d)
+
+
+i = AND(d,B)
+h = AND(f,i)
+C = NOR(f,h)
